@@ -7,43 +7,78 @@
 
 ################################################################################
 
+## Packages
+
 packages <- c("gtools", "readr", "tibble", "dplyr")
 
 lapply(packages, library, character.only = TRUE)
 
+## Seed
 
+set.seed(666)
 
-x <- c("A","B","C","D","E","F")
+## Study set up
 
-df <- permutations(n = 6, r = 6, v = x)
+nr_mcs    <- 3    #Number of mock crimes
+nr_stages <- 6    #Number of stages per mock crime
+sample    <- 300  #Sample size
+group     <- sample / nr_mcs
 
-write.csv(df, "permutations.csv", row.names = FALSE)
+style     <- c("direct", "standard", "reinforcement") #interview style
+stages    <- c("A","B","C","D","E","F")               #stages
 
-permutations <- read_csv("permutations.csv")
+## Generate permutations for stages
 
-colnames(permutations) <- c("Stage_1","Stage_2","Stage_3","Stage_4","Stage_5","Stage_6")
+permutations <- permutations(n = nr_stages, r = nr_stages, v = stages)
 
-permutations$Sequence <-
+colnames(permutations) <- c("stage_1","stage_2","stage_3","stage_4","stage_5","stage_6")
+
+permutations <- data.frame(permutations)
+
+## Adding column for sequence of stages
+
+permutations$sequence <-
   paste(
-    permutations$Stage_1,
-    permutations$Stage_2,
-    permutations$Stage_3,
-    permutations$Stage_4,
-    permutations$Stage_5,
-    permutations$Stage_6
+    permutations$stage_1,
+    permutations$stage_2,
+    permutations$stage_3,
+    permutations$stage_4,
+    permutations$stage_5,
+    permutations$stage_6
   )
 
-write.csv(permutations, "permutations.csv", row.names = FALSE)
+## Calculating number of possible permutations
 
-n <- 3
+poss_permutations <- length(permutations$sequence)
 
-MCpermutations <- do.call("rbind", replicate(n, permutations, simplify = FALSE))
+## Multipling possible permutations with number of mock crimes
 
-MCpermutations$Mock_Crime <- NA
+mc_x_poss_permutations <- poss_permutations*nr_mcs
 
-MCpermutations$Mock_Crime <- c("MC_1")
-MCpermutations$Mock_Crime[721:1440]<- c("MC_2")
-MCpermutations$Mock_Crime[1441:2160]<- c("MC_3")
+## Creating data frame with all possible permutations * number of mock crimes
+
+MCpermutations <- do.call("rbind", replicate(nr_mcs, permutations, simplify = FALSE))
+
+## Assigning mock crime to permitations
+
+MCpermutations$mock_crime <- NA
+
+MCpermutations$mock_crime <- c("MC_2")
+MCpermutations$mock_crime[1:poss_permutations]<- c("MC_1")
+MCpermutations$mock_crime[(mc_x_poss_permutations - (poss_permutations - 1)):mc_x_poss_permutations]<- c("MC_3")
+
+## Save data for permutations with assigned mock crimes
 
 write.csv(MCpermutations,"MCpermutations.csv", row.names = FALSE)
+
+## Random selection of permutations to be used in the experiment
+
+selection_permutation <- MCpermutations %>% slice_sample(n = sample)
+MC_count <- count(selection_permutation, mock_crime)
+
+## Assign style of interview for selection. Assignment is pseudo-random resulting in even groups for each interview style.
+
+selection_permutation$style[sample(1:nrow(selection_permutation), nrow(selection_permutation), FALSE)] <- rep(style,group)
+
+style_count <- count(selection_permutation, style)
 
